@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070b1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AI Leerweg">
+<title>AI Dagelijkse Leerweg</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --bg:#070b1a; --card:rgba(255,255,255,.06); --ink:#eef2ff; --muted:#a3add0; --accent:#7cf3d0; --accent-soft:rgba(124,243,208,.14); --line:rgba(255,255,255,.14); }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink); line-height:1.5; padding-bottom: env(safe-area-inset-bottom); background: radial-gradient(1200px 600px at 10% -10%, #1b2a6b55, transparent 60%), radial-gradient(900px 500px at 110% 10%, #5b21b655, transparent 60%), #070b1a; min-height:100vh; overflow-x:hidden; }
+  .bg { position:fixed; inset:0; z-index:-1; pointer-events:none; overflow:hidden; }
+  .bg::before, .bg::after { content:""; position:absolute; width:55vmax; height:55vmax; border-radius:50%; filter: blur(70px); opacity:.35; animation: drift 18s ease-in-out infinite alternate; }
+  .bg::before { background: #22d3ee; top:-20vmax; left:-15vmax; }
+  .bg::after { background: #a855f7; bottom:-25vmax; right:-20vmax; animation-duration: 24s; }
+  @keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(8vmax,6vmax) scale(1.15); } }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity:0; } }
+  header { padding: 20px 18px 12px; padding-top: calc(20px + env(safe-area-inset-top)); }
+  h1 { font-size:1.8rem; margin:0 0 4px; background: linear-gradient(90deg,#7cf3d0,#22d3ee,#c084fc); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:.9rem; margin:0; }
+  main { padding: 0 14px 40px; max-width: 680px; margin: 0 auto; }
+  .card { background: var(--card); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; box-shadow: 0 10px 40px -12px rgba(34,211,238,.25), inset 0 1px 0 rgba(255,255,255,.06); animation: rise .5s ease both; }
+  @keyframes rise { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
+  .progress-label { font-size:.85rem; color:var(--muted); }
+  .progress { height:12px; background:rgba(255,255,255,.1); border-radius:99px; overflow:hidden; margin:10px 0 4px; }
+  .progress > div { height:100%; width:0; background: linear-gradient(90deg,#7cf3d0,#22d3ee,#c084fc); box-shadow: 0 0 18px #22d3ee88; border-radius:99px; transition: width .3s; }
+  .tabs { display:flex; gap:8px; overflow-x:auto; padding: 4px 0 12px; }
+  .tabs button, .btn { font:inherit; border:1px solid var(--line); background:rgba(255,255,255,.06); color:var(--ink); border-radius:10px; padding:8px 12px; cursor:pointer; white-space:nowrap; transition: transform .15s, box-shadow .2s; }
+  .tabs button:hover, .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px -6px #22d3ee88; }
+  .tabs button.active, .btn.primary { background: linear-gradient(135deg,#22d3ee,#a855f7); color:#fff; border:none; box-shadow: 0 0 22px #a855f799; }
+  .btn:disabled { opacity:.35; cursor:not-allowed; }
+  .day-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .badge { font-size:.75rem; background: var(--accent-soft); color: var(--accent); border:1px solid rgba(124,243,208,.3); padding:3px 8px; border-radius:99px; }
+  h2 { font-size:1.4rem; margin:6px 0 8px; background: linear-gradient(90deg,#fff,#a5f3fc); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  h3 { font-size:.95rem; margin:16px 0 4px; color:#67e8f9; text-transform:uppercase; letter-spacing:.04em; }
+  p, li { font-size:.97rem; }
+  ol, ul { padding-left: 20px; margin: 4px 0; }
+  pre { background: rgba(0,0,0,.35); color: var(--ink); border:1px solid var(--line); border-radius:10px; padding:10px; white-space:pre-wrap; font-size:.88rem; overflow-x:auto; }
+  textarea { width:100%; min-height:90px; font:inherit; border:1px solid var(--line); border-radius:10px; padding:10px; background: rgba(0,0,0,.35); color: var(--ink); }
+  .check { display:flex; align-items:center; gap:10px; margin-top:14px; font-weight:600; cursor:pointer; }
+  .check input { width:22px; height:22px; accent-color:#7cf3d0; }
+  .nav { display:flex; justify-content:space-between; gap:10px; margin-top:14px; }
+  .nav .btn { flex:1; }
+  .copy { margin-top:6px; }
+  .small { font-size:.82rem; color:var(--muted); }
+  details summary { cursor:pointer; font-weight:600; }
+  .done-pop { position:fixed; left:50%; top:40%; transform:translate(-50%,-50%); font-size:2.2rem; font-weight:800; pointer-events:none; z-index:10; animation: pop 1.4s ease forwards; text-shadow: 0 0 24px #7cf3d0; }
+  @keyframes pop { 0% { opacity:0; transform:translate(-50%,-30%) scale(.6);} 20% { opacity:1; transform:translate(-50%,-50%) scale(1.1);} 100% { opacity:0; transform:translate(-50%,-90%) scale(1);} }
+  .confetti { position:fixed; top:-20px; width:9px; height:14px; z-index:9; pointer-events:none; animation: fall 2.6s linear forwards; border-radius:2px; }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<header>
+  <h1>AI Dagelijkse Leerweg</h1>
+  <p class="sub">Elke dag ±1 uur. Je leert de termen door ze te gebruiken in echte projecten.</p>
+</header>
+<main>
+  <div class="card">
+    <details open>
+      <summary>Het doel: waar we naartoe werken</summary>
+      <p>Na 22 dagen kun je:</p>
+      <ul>
+        <li>de belangrijkste AI-termen uitleggen en gebruiken: token, context window, embedding, RAG, tool use, agent, evaluatie en kosten</li>
+        <li>vijf werkende AI-functies bouwen in je eigen apps: een notitie-zoeker op betekenis, een vraagbot die bronnen toont, een tool-aanroep, een agent met stopregel, en een handelsbot-oefenmodule met menselijke goedkeuring</li>
+        <li>één systeem meten met een testset en de kosten bewaken</li>
+        <li>je eindproject in drie minuten presenteren aan een collega</li>
+      </ul>
+      <p class="small">Daarna gaan we verder met een nieuw project per maand, waarin je het geleerde combineert.</p>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="progress-label" id="progressLabel"></div>
+    <div class="progress"><div id="progressBar"></div></div>
+  </div>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="card" id="dayView"></div>
+
+  <div class="card">
+    <div class="day-head"><span class="badge">Bonusproject</span></div>
+    <h2>Bouw je eigen voortgang-sync</h2>
+    <p>Dit is een opdracht die je naast de dagen doet. De keuze voor de sync is zelf het leerproces.</p>
+    <h3>Stap 1: export/import (±30 min)</h3><p>Bouw een knop die je voortgang omzet naar een korte tekst, en een veld om die tekst weer in te lezen. Leer hierbij JSON, serialiseren en het verschil tussen opslaan in je browser en iets delen.</p>
+    <h3>Stap 2: automatische sync (±1 uur)</h3><p>Koppel de pagina aan een gratis online database. Leer wat een backend is, wat een API-sleutel doet en waarom je die niet in openbare code zet. Controleer daarbij je repo op sleutels, zoals in dag 19.</p>
+    <h3>Stap 3: vergelijken</h3><p>Meet zelf wat je het meeste mist: gemak, veiligheid of kosten. Die vergelijking is een echte keuze, en daar zit het leren.</p>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>Wekelijkse update (eens per week, ±5 min)</summary>
+      <p class="small">Plak dit in een nieuwe chat met Haiku. Controleer de bronnen zelf: modellen kennen niet altijd het actuele nieuws.</p>
+      <pre id="weeklyPrompt"></pre>
+      <button class="btn copy" data-copy="weeklyPrompt">Kopieer prompt</button>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>Hoe het werkt</summary>
+      <ul>
+        <li>Je voortgang wordt bewaard in deze browser (niet op andere apparaten).</li>
+        <li>Klik op een dag in de balk bovenaan om te springen. Week 1 en 2 kun je snel doorlopen als je ze al kent: lees de controlevraag, en doe de bouwopdracht alleen als je het antwoord niet paraat hebt.</li>
+        <li>Vink een dag af als je de bouwopdracht écht hebt geprobeerd.</li>
+        <li>Zet op je telefoon via "Zet op beginscherm" (Safari: deel-knop; Chrome: menu).</li>
+      </ul>
+    </details>
+  </div>
+</main>
+
+<script>
+const DAYS = [
+ { w:1, t:"Wat is een taalmodel?", concept:"Een taalmodel voorspelt het volgende stukje tekst (een token). Tokens zijn woorddelen; de hoeveelheid tekst die het model in één keer ziet heet het context window. Alles wat je typt en wat het model terugstuurt telt mee.",
+   experiment:"Stel dezelfde vraag twee keer: één keer kort (\"Leg zwaartekracht uit\"), één keer met context (\"Leg zwaartekracht uit aan een 12-jarige die net over botsingen leert, in 5 zinnen\"). Vergelijk het resultaat.",
+   build:"Schrijf in een tekstbestand 5 vragen die je regelmatig aan AI stelt. Herschrijf elke vraag met doel, doelgroep en gewenste lengte. Noteer wat er verandert.",
+   check:"Waarom kan dezelfde vraag verschillende kwaliteit geven?" },
+ { w:1, t:"Context window en kosten", concept:"Hoe langer een chat, hoe meer tokens elke nieuwe beurt kost, en hoe meer het model van de vroege afspraken kan vergeten. Start daarom per taak een nieuwe chat en houd een korte samenvatting bij.",
+   experiment:"Doe een lange chat (10 beurten) over één onderwerp. Vraag daarna: \"Vat onze afspraken samen in 5 punten.\" Start een nieuwe chat en plak alleen die samenvatting. Vergelijk.",
+   build:"Maak een sjabloon 'Taakstart' (10 regels): doel, context, beperkingen, gewenst formaat. Gebruik die als eerste bericht in elke nieuwe chat.",
+   check:"Wanneer is een nieuwe chat slimmer dan doorpraten?" },
+ { w:1, t:"Prompt-structuur", concept:"Een goede prompt bevat: rol, taak, context, formaat en grenzen. Scheid de onderdelen met kopjes of XML-tags zoals <context>.",
+   experiment:"Vraag om een uitleg van een onderwerp naar keuze, eerst zonder structuur, dan met <rol>, <taak>, <formaat>. Let op precisie en bruikbaarheid.",
+   build:"Schrijf een prompt die een weekmenu voor jouw keuken maakt in een tabel, met inkooplijst. Verfijn hem in twee rondes.",
+   check:"Welk onderdeel van de structuur levert het meeste resultaat op?" },
+ { w:1, t:"Voorbeelden geven (few-shot)", concept:"Een model leert vaak sneller van twee of drie voorbeelden dan van een lange beschrijving. Laat je voorbeelden in precies het gewenste format zien.",
+   experiment:"Geef drie voorbeelden van een kort, zakelijk mailtje in jouw stijl en vraag om een vierde over een ander onderwerp. Vergelijk met een prompt zonder voorbeelden.",
+   build:"Maak een 'stijlgids' met drie voorbeeldteksten die jij goed vindt. Gebruik die als vaste bijlage in je prompts voor schrijfwerk.",
+   check:"Waarom werken voorbeelden vaak beter dan regels?" },
+ { w:1, t:"Stap-voor-stap denken", concept:"Bij redeneertaken (rekenen, logica, plannen) helpt het om het model eerst een plan te laten maken. Bij simpele feiten is dat overbodig en kost het alleen tokens.",
+   experiment:"Vraag een redeneervraag met en zonder \"Denk stap voor stap\". Controleer welke versie de juiste uitkomst geeft.",
+   build:"Maak een prompt die een beslissing voorbereidt (bijv. 'Moet ik deze aankoop doen?') met voor- en nadelen en een aanbeveling met onzekerheden.",
+   check:"Wanneer is stap-voor-stap denken verspilling?" },
+ { w:1, t:"Gestructureerde output", concept:"Vraag om JSON of een tabel, dan kun je het resultaat in code of een spreadsheet gebruiken. Dit is de brug van chat naar software.",
+   experiment:"Vraag om 10 recepten als JSON met velden naam, tijd, ingrediënten. Plak het in een JSON-viewer om te zien of het klopt.",
+   build:"Laat het model een lijst met je taken als JSON maken. Plak die in een HTML-pagina die de taken als lijst toont.",
+   check:"Waarom is gestructureerde output betrouwbaarder om mee te programmeren?" },
+ { w:1, t:"Weekreview 1", concept:"Herhaling is het geheim. Lees je notities van week 1 terug en pas je taaksjabloon aan.",
+   experiment:"Vraag het model je zes lessen als quiz van 5 vragen te stellen, en beantwoord ze zonder te kijken.",
+   build:"Verbeter je 'Taakstart'-sjabloon met wat je deze week hebt geleerd.",
+   check:"Welke prompt-gewoonte gaat je het meest helpen?" },
+
+ { w:2, t:"Wat is vibe coden?", concept:"Vibe coden is software bouwen door in gewone taal te beschrijven wat je wilt, en het resultaat te testen en bij te sturen. Een korte specificatie voorkomt chaos.",
+   experiment:"Beschrijf in 5 zinnen een simpele app (bijv. een boodschappenlijst). Vraag het model om een plan in stappen, nog zonder code.",
+   build:"Schrijf de specificatie van een app die je echt wilt: doel, gebruikers, 3 functies, wat buiten scope is.",
+   check:"Waarom werkt een specificatie beter dan één grote vraag 'bouw een app'?" },
+ { w:2, t:"Anatomie van een HTML-app", concept:"Een app in één bestand bestaat uit HTML (structuur), CSS (vormgeving) en JavaScript (gedrag). Je opent het bestand in elke browser, zonder installatie.",
+   experiment:"Laat het model uitleggen welk deel van jouw Leerweg-pagina wat doet, regel voor regel.",
+   build:"Bouw een pagina met één titel, één invoerveld en een knop die de tekst onder de titel plaatst.",
+   check:"Welke rol heeft JavaScript in de pagina?" },
+ { w:2, t:"Je eerste app met opslag", concept:"localStorage slaat data op in de browser, zodat ze blijft na het sluiten. Het is geschikt voor persoonlijke voorkeuren en voortgang, niet voor gedeelde data.",
+   experiment:"Voeg aan de vorige pagina een teller toe die bij herladen de waarde onthoudt.",
+   build:"Maak een gewoonte-tracker: 5 gewoontes, een vinkje per dag, opslag in localStorage.",
+   check:"Wat gebeurt er met localStorage als je een andere browser gebruikt?" },
+ { w:2, t:"Debuggen als vaardigheid", concept:"Kopieer de exacte foutmelding, zeg wat je verwachtte en wat er gebeurde, en verander één ding tegelijk.",
+   experiment:"Maak opzettelijk een fout (verkeerde naam van een variabele) en lees de melding.",
+   build:"Breng bewust een bug in je gewoonte-tracker en los hem op met een prompt die exact één fix vraagt.",
+   check:"Wat is het verschil tussen een foutmelding en een symptoom?" },
+ { w:2, t:"Checkpoints en versies", concept:"Bewaar een kopie van je bestand voordat je grote wijzigingen maakt. Zonder git: kopieer het bestand met een datum in de naam.",
+   experiment:"Maak een versie 'v1', verander iets, en zet 'v1' terug. Controleer dat het werkt.",
+   build:"Maak van je gewoonte-tracker een map met versies en een korte changelog per versie.",
+   check:"Waarom is een checkpoint goedkoper dan een bug die je niet meer kunt ongedaan maken?" },
+
+ { w:3, t:"Embeddings: zoeken op betekenis", concept:"Een embedding is een lijst getallen die de betekenis van een tekst weergeeft. Teksten met een vergelijkbare betekenis liggen dicht bij elkaar, ook als de woorden verschillen.",
+   experiment:"Zoek in je Learning Hub op 'poes' terwijl de video 'kat' noemt. Het trefwoordzoeken vindt niets. Bedenk waarom.",
+   build:"Bouw een notitie-zoeker voor je Learning Hub: 20 korte beschrijvingen van video's, en een zoekveld dat de meest passende video toont. Zoek met synoniemen en kijk waar het misgaat. Welke zoekvraag breekt het systeem, en waarom denk je dat?",
+   check:"Waarom vindt zoeken op betekenis soms meer dan zoeken op trefwoord, en wanneer juist niet?" },
+ { w:3, t:"RAG: een vraagbot die bronnen toont", concept:"Retrieval Augmented Generation (RAG) zoekt eerst relevante tekst op in jouw documenten en laat het model daarop antwoorden. Zo verminder je hallucinaties en kun je bronnen tonen.",
+   experiment:"Plak een stuk tekst (een handleiding of je eigen notities) in een chat en stel drie vragen. Vraag het model bij elk antwoord welke zin het gebruikte. Controleer of die zin echt zegt wat het model beweert.",
+   build:"Breid je notitie-zoeker uit tot vraagbot: het systeem zoekt de drie beste fragmenten, geeft ze aan het model, en het antwoord moet de bronregel noemen. Als het model iets verzint, moet je app dat merken. Wat moet er in de prompt staan om dat af te dwingen?",
+   check:"Wat gebeurt er als de zoekstap het verkeerde fragment vindt, en wie vangt dat op?" },
+ { w:3, t:"Chunking en de drempel", concept:"Je verdeelt lange tekst in stukken (chunks). Te grote stukken bevatten ruis, te kleine stukken missen context. Een drempel bepaalt welke resultaten je doorgeeft.",
+   experiment:"Neem dezelfde zoekvraag en test drie drempels (hoog, midden, laag). Noteer per instelling wat er binnenkomt.",
+   build:"Maak een 'speelveld' in je zoeker: schuifjes voor chunkgrootte en drempel, en de resultaten updaten live. Zoek de instelling waarbij je vraagbot het beste werkt. Wat ziet je ervan dat het 'te veel' of 'te weinig' is?",
+   check:"Welke instelling heeft het grootste effect op de kwaliteit van je antwoorden?" },
+ { w:3, t:"Tool use: het model roept een functie aan", concept:"Met tool use beschrijf je een functie (naam, parameters, doel). Het model kiest de functie en vult de parameters in; jouw code voert de functie uit en geeft het resultaat terug.",
+   experiment:"Vraag het model een rekensom met een hulpmiddel en zonder. Let op betrouwbaarheid en wie de berekening uitvoert.",
+   build:"Voeg aan je tracker een functie 'bereken_score(gewoontes)' toe. Laat het model op basis van een zin van jou de juiste functie kiezen en de parameters invullen. Wat gebeurt er als de zin dubbelzinnig is?",
+   check:"Wie voert de functie uit: het model of jouw code, en waarom is dat belangrijk?" },
+ { w:3, t:"Evalueren: een wedstrijd tegen je eigen systeem", concept:"Een testset is een lijst vragen met gewenste antwoorden. Je meet hoe vaak het systeem slaagt na elke wijziging. Zonder meting weet je niet of een verandering helpt.",
+   experiment:"Schrijf 10 vragen met verwacht antwoord voor je vraagbot. Draai ze en tel de score. Wijzig één ding in de prompt en draai opnieuw.",
+   build:"Bouw een testscherm: 20 vragen, een knop 'start de ronde', en een score per versie van je prompt. Welke wijziging verhoogt de score echt, en welke alleen het gevoel?",
+   check:"Waarom is een score op 20 vragen betrouwbaarder dan één mooi voorbeeld?" },
+
+ { w:4, t:"Agents: een lus van plannen, doen en controleren", concept:"Een agent is een lus: het model plant een stap, roept een tool aan, controleert het resultaat en herhaalt. Die lus heeft een stopconditie nodig, anders blijft hij draaien. Fouten stapelen zich op, dus begrens het aantal stappen.",
+   experiment:"Laat het model een taak in drie stappen uitvoeren, en na elke stap zijn eigen resultaat beoordelen. Stop het na stap twee. Wat gaat er mis als er geen stopregel is?",
+   build:"Bouw een mini-agent in je tracker: één opdracht, maximaal 5 stappen, en elke stap wordt gelogd. Wat is je stopconditie, en wat doet de agent als een tool een fout geeft?",
+   check:"Welke acties mag een agent nooit zonder bevestiging van een mens uitvoeren?" },
+ { w:4, t:"Geheimen en repo's: wat komt er naar buiten", concept:"Je API-key hoort in een .env-bestand dat nooit naar GitHub gaat. Een .gitignore-bestand voorkomt dat. Een openbare repo is voor iedereen zichtbaar, ook voor bots die naar sleutels zoeken.",
+   experiment:"Zoek in je projectmap naar het patroon 'sk-' of 'api_key' en controleer of er iets in de broncode of in een gepushte repo staat.",
+   build:"Schrijf een kleine controle (één script) die je projectmap doorzoekt op sleutels en waarschuwt als er een in een niet-genegeerd bestand staat. Draai hem op je Salsa-repo. Als er iets gevonden wordt: wat is de juiste manier om die sleutel te vervangen?",
+   check:"Wat doe je als een sleutel per ongeluk in een openbare repo is gepusht?" },
+ { w:4, t:"Kosten: tokens tellen en het goedkoopst bouwen", concept:"Elke beurt kost tokens voor invoer en uitvoer. Prompt caching hergebruikt een vaste startprompt tegen een lagere prijs. Kies per stap het kleinste model dat de taak aankan.",
+   experiment:"Tel bij je wiskundebot de tokens van één gesprek en bereken de kosten. Verkort de systeemprompt en vergelijk.",
+   build:"Bouw een budgetmeter in je app: per beurt de geschatte kosten, een dagbudget, en een waarschuwing bij 80%. Welke stap kan naar Haiku zonder kwaliteitsverlies?",
+   check:"Welke wijziging bespaart het meeste, en wat kost die je in kwaliteit?" },
+ { w:4, t:"Handelsbot-oefenmodule: een agent met een rem", concept:"Een agent die echt geld beheert, heeft menselijke goedkeuring nodig voor elke actie, een maximum per dag en een logboek. Eerst oefenen met nepgeld, dan pas met echt geld.",
+   experiment:"Bedenk drie regels die de bot nooit mag overtreden. Schrijf ze op voordat je code schrijft.",
+   build:"Bouw de oefenmodule: een agent met nepgeld, een goedkeuringsknop voor elke koop of verkoop, een dagmaximum en een logboek van elke beslissing. Welke regel heb je het eerst nodig gehad?",
+   check:"Waarom is een logboek belangrijker dan de winst van de bot?" },
+ { w:4, t:"Eindproject en presentatie", concept:"Een project afmaken is een vaardigheid op zich. Je levert één werkende AI-functie op, met een testset, een kostenmeter en een uitleg in drie minuten.",
+   experiment:"Vraag het model je eindproject te beoordelen op bruikbaarheid, kosten, veiligheid en testresultaten. Verwerk de drie scherpste punten.",
+   build:"Publiceer je eindproject, zet het op je telefoon en presenteer het in drie minuten aan een collega: probleem, oplossing, één term die je nu echt begrijpt, en wat je volgende maand wilt bouwen.",
+   check:"Welke term gebruik je nu zonder na te denken, die je twee maanden geleden nog niet kende?" }
+];
+
+const KEY = "leerweg-v1";
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) { return {}; } }
+function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {} }
+let state = load();
+if (!state.start) { state.start = new Date().toISOString().slice(0,10); save(state); }
+
+function todayIndex() {
+  const s = new Date(state.start + "T00:00:00");
+  const n = new Date(); n.setHours(0,0,0,0);
+  const diff = Math.floor((n - s) / 86400000);
+  return Math.min(Math.max(diff + 1, 1), DAYS.length);
+}
+let current = todayIndex();
+
+function esc(s) { return s.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function renderTabs() {
+  const wrap = document.getElementById("tabs");
+  wrap.innerHTML = "";
+  DAYS.forEach((d, i) => {
+    const b = document.createElement("button");
+    const n = i + 1;
+    b.textContent = (state["d"+n] ? "✓ " : "") + n;
+    if (n === current) b.classList.add("active");
+    b.onclick = () => { current = n; render(); };
+    wrap.appendChild(b);
+  });
+}
+
+function renderDay() {
+  const d = DAYS[current - 1];
+  const notesKey = "n" + current;
+  const v = document.getElementById("dayView");
+  v.innerHTML = `
+    <div class="day-head"><span class="badge">Week ${d.w} · Dag ${current}</span>${current === todayIndex() ? '<span class="badge">Vandaag</span>' : ''}</div>
+    <h2>${esc(d.t)}</h2>
+    <h3>Leer (15 min)</h3><p>${esc(d.concept)}</p>
+    <h3>Probeer (10 min)</h3><p>${esc(d.experiment)}</p>
+    <h3>Bouw (45 min)</h3><p>${esc(d.build)}</p>
+    <h3>Vraag van de dag</h3><p>${esc(d.check)}</p>
+    <label>Notities
+      <textarea id="notes">${esc(state[notesKey] || "")}</textarea>
+    </label>
+    <label class="check"><input type="checkbox" id="done" ${state["d"+current] ? "checked" : ""}> Dag afgerond</label>
+    <div class="nav">
+      <button class="btn" id="prev" ${current===1?"disabled":""}>← Vorige</button>
+      <button class="btn" id="next" ${current===DAYS.length?"disabled":""}>Volgende →</button>
+    </div>`;
+  document.getElementById("notes").oninput = e => { state[notesKey] = e.target.value; save(state); };
+  document.getElementById("done").onchange = e => { state["d"+current] = e.target.checked; save(state); render(); };
+  document.getElementById("prev").onclick = () => { current--; render(); window.scrollTo(0,0); };
+  document.getElementById("next").onclick = () => { current++; render(); window.scrollTo(0,0); };
+}
+
+function render() { renderTabs(); renderDay(); renderProgress(); }
+
+const WEEKLY = `Geef me, in het Nederlands, de 5 belangrijkste ontwikkelingen van de afgelopen week op het gebied van AI, voor iemand die zelf apps bouwt met vibe coden.
+Per punt: 1 zin wat er is veranderd, 1 zin waarom het voor mij relevant is, en de bron (naam + datum). Max 300 woorden. Markeer onzekerheden expliciet.`;
+document.getElementById("weeklyPrompt").textContent = WEEKLY;
+document.querySelectorAll("[data-copy]").forEach(btn => {
+  btn.onclick = async () => {
+    const txt = document.getElementById(btn.dataset.copy).textContent;
+    try { await navigator.clipboard.writeText(txt); btn.textContent = "Gekopieerd ✓"; }
+    catch(e) { btn.textContent = "Selecteer en kopieer handmatig"; }
+  };
+});
+
+function renderProgress() {
+  const done = DAYS.filter((_, i) => state["d"+(i+1)]).length;
+  const pct = Math.round(done / DAYS.length * 100);
+  const el = document.getElementById("progressLabel");
+  el.innerHTML = `<strong style="color:#eef2ff">${done}</strong> van ${DAYS.length} dagen · ${pct}% · ${done >= DAYS.length ? "Je hebt het gehaald 🏆" : (done ? "Blijf doorgaan 🚀" : "Start vandaag 🌱")}`;
+  document.getElementById("progressBar").style.width = pct + "%";
+}
+
+function confetti() {
+  const colors = ["#7cf3d0","#22d3ee","#c084fc","#f472b6","#fde047"];
+  for (let i = 0; i < 90; i++) {
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.left = Math.random() * 100 + "vw";
+    c.style.background = colors[i % colors.length];
+    c.style.animationDelay = (Math.random() * .4) + "s";
+    c.style.animationDuration = (2 + Math.random() * 1.6) + "s";
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 4200);
+  }
+  const msg = document.createElement("div");
+  msg.className = "done-pop";
+  msg.textContent = ["Dag gehaald! ⚡","Nog een stap 🚀","Sterk gedaan 🔥","Boem, klaar 💥"][Math.floor(Math.random()*4)];
+  document.body.appendChild(msg);
+  setTimeout(() => msg.remove(), 1500);
+}
+
+document.addEventListener("change", e => {
+  if (e.target && e.target.id === "done" && e.target.checked) confetti();
+});
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+}
+
+render();
+</script>
+</body>
+</html>
