@@ -1,0 +1,26 @@
+const PREFIX = "ai-leerweg-";
+const CACHE = PREFIX + "1";
+const BESTANDEN = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(BESTANDEN)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((namen) => Promise.all(
+      namen.filter((n) => n.startsWith(PREFIX) && n !== CACHE).map((n) => caches.delete(n))
+    )).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+  event.respondWith(
+    caches.match(event.request).then((hit) => hit || fetch(event.request).then((res) => {
+      const kopie = res.clone();
+      caches.open(CACHE).then((c) => c.put(event.request, kopie));
+      return res;
+    }).catch(() => caches.match("./index.html")))
+  );
+});

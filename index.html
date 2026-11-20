@@ -52,6 +52,19 @@
   .done-pop { position:fixed; left:50%; top:40%; transform:translate(-50%,-50%); font-size:2.2rem; font-weight:800; pointer-events:none; z-index:10; animation: pop 1.4s ease forwards; text-shadow: 0 0 24px #7cf3d0; }
   @keyframes pop { 0% { opacity:0; transform:translate(-50%,-30%) scale(.6);} 20% { opacity:1; transform:translate(-50%,-50%) scale(1.1);} 100% { opacity:0; transform:translate(-50%,-90%) scale(1);} }
   .confetti { position:fixed; top:-20px; width:9px; height:14px; z-index:9; pointer-events:none; animation: fall 2.6s linear forwards; border-radius:2px; }
+
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
+  .stat { background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:12px; padding:10px 4px; }
+  .num { display:block; font-size:1.3rem; font-weight:800; background:linear-gradient(90deg,#7cf3d0,#c084fc); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .lbl { font-size:.75rem; color:var(--muted); }
+  .xpbar { height:10px; background:rgba(255,255,255,.1); border-radius:99px; overflow:hidden; margin:12px 0 4px; }
+  .xpbar > div { height:100%; width:0; background:linear-gradient(90deg,#fde047,#f472b6); border-radius:99px; transition: width .4s; }
+  .goal { font-weight:600; margin:10px 0 0; }
+  .pills { display:flex; flex-wrap:wrap; gap:6px; }
+  .pill { font-size:.8rem; padding:5px 10px; border-radius:99px; border:1px solid var(--line); color:var(--muted); filter:grayscale(1); opacity:.45; }
+  .pill.on { filter:none; opacity:1; color:var(--ink); border-color:rgba(124,243,208,.4); background:var(--accent-soft); }
+  .xp-pop { position:fixed; left:50%; bottom:18%; transform:translateX(-50%); font-weight:800; font-size:1.6rem; color:#fde047; text-shadow:0 0 18px #f472b6; pointer-events:none; z-index:11; animation: xpup 1.4s ease forwards; }
+  @keyframes xpup { 0% { opacity:0; transform:translate(-50%,20px); } 20% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-60px); } }
 </style>
 </head>
 <body>
@@ -78,6 +91,19 @@
   <div class="card">
     <div class="progress-label" id="progressLabel"></div>
     <div class="progress"><div id="progressBar"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><span class="num" id="statXp">0</span><span class="lbl">XP</span></div>
+      <div class="stat"><span class="num" id="statStreak">0</span><span class="lbl">🔥 reeks</span></div>
+      <div class="stat"><span class="num" id="statLevel">Level 1</span><span class="lbl" id="statTitle">Nieuwsgierig</span></div>
+    </div>
+    <div class="xpbar"><div id="xpBar"></div></div>
+    <div class="small" id="xpNext"></div>
+    <p class="goal" id="dailyGoal"></p>
+    <h3>Badges</h3>
+    <div class="pills" id="badges"></div>
   </div>
 
   <div class="tabs" id="tabs"></div>
@@ -264,7 +290,56 @@ function renderDay() {
   document.getElementById("next").onclick = () => { current++; render(); window.scrollTo(0,0); };
 }
 
-function render() { renderTabs(); renderDay(); renderProgress(); }
+const TITLES = ["Nieuwsgierig","Prompt-pro","Bouwer","Agent-tamer","AI-engineer","AI-meester"];
+const XP_PER_DAY = 50;
+const XP_PER_LEVEL = 200;
+
+function computeStats() {
+  const done = DAYS.map((_, i) => !!state["d"+(i+1)]);
+  const count = done.filter(Boolean).length;
+  const xp = count * XP_PER_DAY;
+  const level = Math.floor(xp / XP_PER_LEVEL) + 1;
+  const title = TITLES[Math.min(level - 1, TITLES.length - 1)];
+  let last = -1;
+  done.forEach((v, i) => { if (v) last = i; });
+  let streak = 0;
+  for (let i = last; i >= 0 && done[i]; i--) streak++;
+  const range = (a, b) => done.slice(a - 1, b).every(Boolean);
+  const badges = [
+    { icon:"🌱", name:"Eerste stap", on: count >= 1 },
+    { icon:"📘", name:"Week 1 af", on: range(1, 7) },
+    { icon:"🛠️", name:"Week 2 af", on: range(8, 12) },
+    { icon:"🧠", name:"Week 3 af", on: range(13, 17) },
+    { icon:"🤖", name:"Week 4 af", on: range(18, 22) },
+    { icon:"🔥", name:"5 op rij", on: streak >= 5 },
+    { icon:"⚡", name:"Halverwege", on: count >= 11 },
+    { icon:"🏆", name:"Gehaald", on: count >= DAYS.length }
+  ];
+  const todayDone = !!state["d"+todayIndex()];
+  return { xp, level, title, streak, badges, todayDone };
+}
+
+function renderStats() {
+  const s = computeStats();
+  document.getElementById("statXp").textContent = s.xp;
+  document.getElementById("statStreak").textContent = s.streak;
+  document.getElementById("statLevel").textContent = "Level " + s.level;
+  document.getElementById("statTitle").textContent = s.title;
+  document.getElementById("xpBar").style.width = ((s.xp % XP_PER_LEVEL) / XP_PER_LEVEL * 100) + "%";
+  document.getElementById("xpNext").textContent = (XP_PER_LEVEL - (s.xp % XP_PER_LEVEL)) + " XP tot level " + (s.level + 1);
+  document.getElementById("dailyGoal").textContent = s.todayDone ? "✅ Dagdoel gehaald vandaag" : "⏳ Dagdoel: rond dag " + todayIndex() + " af";
+  document.getElementById("badges").innerHTML = s.badges.map(b => `<span class="pill${b.on ? " on" : ""}" title="${b.name}">${b.icon} ${b.name}</span>`).join("");
+}
+
+function xpPop() {
+  const el = document.createElement("div");
+  el.className = "xp-pop";
+  el.textContent = "+" + XP_PER_DAY + " XP";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+
+function render() { renderTabs(); renderDay(); renderProgress(); renderStats(); }
 
 const WEEKLY = `Geef me, in het Nederlands, de 5 belangrijkste ontwikkelingen van de afgelopen week op het gebied van AI, voor iemand die zelf apps bouwt met vibe coden.
 Per punt: 1 zin wat er is veranderd, 1 zin waarom het voor mij relevant is, en de bron (naam + datum). Max 300 woorden. Markeer onzekerheden expliciet.`;
@@ -286,6 +361,7 @@ function renderProgress() {
 }
 
 function confetti() {
+  xpPop();
   const colors = ["#7cf3d0","#22d3ee","#c084fc","#f472b6","#fde047"];
   for (let i = 0; i < 90; i++) {
     const c = document.createElement("div");
