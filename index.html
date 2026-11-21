@@ -65,6 +65,11 @@
   .pill.on { filter:none; opacity:1; color:var(--ink); border-color:rgba(124,243,208,.4); background:var(--accent-soft); }
   .xp-pop { position:fixed; left:50%; bottom:18%; transform:translateX(-50%); font-weight:800; font-size:1.6rem; color:#fde047; text-shadow:0 0 18px #f472b6; pointer-events:none; z-index:11; animation: xpup 1.4s ease forwards; }
   @keyframes xpup { 0% { opacity:0; transform:translate(-50%,20px); } 20% { opacity:1; } 100% { opacity:0; transform:translate(-50%,-60px); } }
+  .qbox { margin:14px 0; padding-top:12px; border-top:1px solid var(--line); }
+  .opt { display:block; width:100%; text-align:left; margin:6px 0; background:rgba(255,255,255,.05); border:1px solid var(--line); color:var(--ink); border-radius:10px; padding:10px; font:inherit; cursor:pointer; }
+  .opt:disabled { cursor:default; }
+  .opt.right { border-color:#7cf3d0; background:rgba(124,243,208,.15); }
+  .opt.wrong { border-color:#f472b6; background:rgba(244,114,182,.15); }
 </style>
 </head>
 <body>
@@ -109,6 +114,8 @@
   <div class="tabs" id="tabs"></div>
 
   <div class="card" id="dayView"></div>
+
+  <div class="card" id="quizCard"></div>
 
   <div class="card">
     <div class="day-head"><span class="badge">Bonusproject</span></div>
@@ -265,81 +272,141 @@ function renderTabs() {
   });
 }
 
+function feedbackPrompt() {
+  const d = DAYS[current - 1];
+  const a = state["a" + current] || "";
+  return `Ik doe de AI-leerweg, dag ${current}: "${d.t}".\nOpdracht: ${d.build}\nVraag van de dag: ${d.check}\nMijn antwoord: ${a}\n\nGeef eerlijke feedback: wat klopt, wat mist of is onduidelijk, en stel één verdiepende vraag. Houd het kort, in het Nederlands.`;
+}
+
+function gateOk(n) {
+  const a = (state["a" + n] || "").trim().length >= 30;
+  const c = [0, 1, 2].every(k => state["c" + n + "_" + k]);
+  return a && c;
+}
+
+function updateGate() {
+  const n = current;
+  const ok = gateOk(n);
+  const cb = document.getElementById("done");
+  if (cb) cb.disabled = !ok && !state["d" + n];
+  const msg = document.getElementById("gateMsg");
+  if (msg) msg.textContent = ok ? "Klaar om af te ronden." : "Vul je antwoord in (min. 30 tekens) en vink alle drie de controlepunten aan om de dag af te ronden.";
+}
+
 function renderDay() {
   const d = DAYS[current - 1];
-  const notesKey = "n" + current;
+  const n = current;
+  const answer = state["a" + n] || "";
+  const checks = [0, 1, 2].map(k => !!state["c" + n + "_" + k]);
+  const ok = gateOk(n);
   const v = document.getElementById("dayView");
   v.innerHTML = `
-    <div class="day-head"><span class="badge">Week ${d.w} · Dag ${current}</span>${current === todayIndex() ? '<span class="badge">Vandaag</span>' : ''}</div>
+    <div class="day-head"><span class="badge">Week ${d.w} · Dag ${n}</span>${n === todayIndex() ? '<span class="badge">Vandaag</span>' : ''}</div>
     <h2>${esc(d.t)}</h2>
     <h3>Leer (15 min)</h3><p>${esc(d.concept)}</p>
     <h3>Probeer (10 min)</h3><p>${esc(d.experiment)}</p>
     <h3>Bouw (45 min)</h3><p>${esc(d.build)}</p>
     <h3>Vraag van de dag</h3><p>${esc(d.check)}</p>
-    <label>Notities
-      <textarea id="notes">${esc(state[notesKey] || "")}</textarea>
+    <label>Jouw antwoord (minimaal 30 tekens)
+      <textarea id="answer">${esc(answer)}</textarea>
     </label>
-    <label class="check"><input type="checkbox" id="done" ${state["d"+current] ? "checked" : ""}> Dag afgerond</label>
+    <h3>Controle</h3>
+    <label class="check"><input type="checkbox" class="crit" data-k="0" ${checks[0] ? "checked" : ""}> Ik heb de bouwopdracht echt geprobeerd</label>
+    <label class="check"><input type="checkbox" class="crit" data-k="1" ${checks[1] ? "checked" : ""}> Ik kan de term in mijn eigen woorden uitleggen</label>
+    <label class="check"><input type="checkbox" class="crit" data-k="2" ${checks[2] ? "checked" : ""}> Ik heb iets aangepast of getest</label>
+    <label>Notities
+      <textarea id="notes">${esc(state["n" + n] || "")}</textarea>
+    </label>
+    <p class="small" id="gateMsg"></p>
+    <label class="check"><input type="checkbox" id="done" ${state["d" + n] ? "checked" : ""}> Dag afgerond</label>
+    <div class="nav" style="margin-top:14px">
+      <a class="btn" id="askFeedback" href="https://claude.ai/new" target="_blank" rel="noopener">Vraag Claude om feedback</a>
+    </div>
     <div class="nav">
-      <button class="btn" id="prev" ${current===1?"disabled":""}>← Vorige</button>
-      <button class="btn" id="next" ${current===DAYS.length?"disabled":""}>Volgende →</button>
+      <button class="btn" id="prev" ${n === 1 ? "disabled" : ""}>← Vorige</button>
+      <button class="btn" id="next" ${n === DAYS.length ? "disabled" : ""}>Volgende →</button>
     </div>`;
-  document.getElementById("notes").oninput = e => { state[notesKey] = e.target.value; save(state); };
-  document.getElementById("done").onchange = e => { state["d"+current] = e.target.checked; save(state); render(); };
+  document.getElementById("answer").oninput = e => { state["a" + n] = e.target.value; save(state); updateGate(); };
+  document.querySelectorAll(".crit").forEach(cb => {
+    cb.onchange = e => { state["c" + n + "_" + cb.dataset.k] = e.target.checked; save(state); updateGate(); };
+  });
+  document.getElementById("notes").oninput = e => { state["n" + n] = e.target.value; save(state); };
+  document.getElementById("done").onchange = e => { state["d" + n] = e.target.checked; save(state); render(); };
+  document.getElementById("askFeedback").onclick = () => {
+    try { navigator.clipboard.writeText(feedbackPrompt()); } catch (err) {}
+  };
   document.getElementById("prev").onclick = () => { current--; render(); window.scrollTo(0,0); };
   document.getElementById("next").onclick = () => { current++; render(); window.scrollTo(0,0); };
+  updateGate();
 }
 
-const TITLES = ["Nieuwsgierig","Prompt-pro","Bouwer","Agent-tamer","AI-engineer","AI-meester"];
-const XP_PER_DAY = 50;
-const XP_PER_LEVEL = 200;
+const QUIZZES = [
+ { title: "Week 1: prompts en tokens", qs: [
+   { q: "Wat is een token?", opts: ["Een volledig woord", "Een woorddeel dat het model verwerkt", "Een wachtwoord voor de API", "Een soort prompt"], a: 1, why: "Een token is een stukje tekst, vaak een deel van een woord. Kosten en context worden in tokens gemeten." },
+   { q: "Wat bepaalt het context window?", opts: ["Hoe snel het antwoord komt", "Hoeveel tekst het model in één keer kan zien", "De prijs per maand", "Het aantal beschikbare modellen"], a: 1, why: "Het context window is de hoeveelheid tekst die het model tegelijk kan verwerken, inclusief jouw berichten en zijn antwoorden." },
+   { q: "Wat hoort niet thuis in een prompt?", opts: ["Het doel", "Voorbeelden", "Je wachtwoord", "Het gewenste formaat"], a: 2, why: "Wachtwoorden en andere gevoelige gegevens horen nooit in een prompt. Het doel, voorbeelden en het formaat helpen juist." },
+   { q: "Wanneer is stap-voor-stap denken vooral nuttig?", opts: ["Bij het opzoeken van een hoofdstad", "Bij rekenen en logica", "Bij het herhalen van een zin", "Bij het kopiëren van tekst"], a: 1, why: "Bij redeneertaken helpt het model om eerst een plan te maken. Bij simpele feiten kost het alleen extra tokens." }
+ ] },
+ { title: "Week 2: vibe coden en HTML-apps", qs: [
+   { q: "Waar staat de vormgeving van een HTML-app?", opts: ["In de HTML", "In de CSS", "In de JavaScript", "In het manifest"], a: 1, why: "HTML is de structuur, CSS de vormgeving en JavaScript het gedrag." },
+   { q: "Wat bewaart localStorage?", opts: ["Data in je browser die na het sluiten blijft", "Data op een server die iedereen ziet", "Je wachtwoord", "Alle bestanden van je computer"], a: 0, why: "localStorage bewaart data in de browser van één apparaat. Het is geen gedeelde opslag." },
+   { q: "Waarom is een checkpoint nuttig?", opts: ["Het maakt de app sneller", "Je kunt terug naar een werkende versie", "Het verwijdert bugs automatisch", "Het stuurt een kopie naar GitHub"], a: 1, why: "Een checkpoint is een kopie van een werkende versie, zodat je veilig kunt experimenteren." },
+   { q: "Wat is de beste manier om een bug te zoeken?", opts: ["Tien dingen tegelijk aanpassen", "Één ding tegelijk veranderen en de foutmelding lezen", "De app opnieuw installeren", "De code verwijderen"], a: 1, why: "Eén wijziging tegelijk maakt duidelijk welke verandering de fout veroorzaakt." }
+ ] },
+ { title: "Week 3: zoeken, tools en evaluatie", qs: [
+   { q: "Wat is een embedding?", opts: ["Een lijst getallen die de betekenis van tekst weergeeft", "Een soort video", "Een wachtwoord", "Een knop in een app"], a: 0, why: "Teksten met een vergelijkbare betekenis liggen dicht bij elkaar in die getallenreeks. Daarom werkt zoeken op betekenis." },
+   { q: "Wat doet RAG?", opts: ["Het model laten antwoorden zonder bronnen", "Eerst relevante tekst uit je eigen documenten ophalen en die als basis gebruiken", "Het model opnieuw trainen", "De kosten van tokens verlagen"], a: 1, why: "RAG haalt eerst passende fragmenten op en laat het model daarop antwoorden. Zo kun je bronnen tonen." },
+   { q: "Wie voert een functie uit bij tool use?", opts: ["Het model zelf", "Jouw code", "De browser", "Anthropic"], a: 1, why: "Het model kiest de functie en vult de parameters in. Jouw code voert de functie uit." },
+   { q: "Waarom is een testset belangrijk?", opts: ["Het maakt de app mooier", "Je meet of een wijziging echt helpt", "Het vervangt de API", "Het verlaagt de kosten automatisch"], a: 1, why: "Met een vaste set vragen zie je of een aanpassing de score echt verbetert, en niet alleen je gevoel." }
+ ] },
+ { title: "Week 4: agents, sleutels en kosten", qs: [
+   { q: "Waarom heeft een agent een stopregel nodig?", opts: ["Om kosten te besparen", "Zodat de lus niet eindeloos blijft draaien", "Om de kleur van de app te bepalen", "Om tokens te verhogen"], a: 1, why: "Een agent is een lus. Zonder stopregel blijft hij doorgaan en lopen de kosten op." },
+   { q: "Waar hoort een API-sleutel thuis?", opts: ["In de openbare code op GitHub", "In een .env-bestand dat niet naar GitHub gaat", "In de naam van de repo", "In een afbeelding"], a: 1, why: "Een openbare repo is voor iedereen zichtbaar. Een .env-bestand met een .gitignore houdt de sleutel privé." },
+   { q: "Wat helpt het meest om kosten te verlagen?", opts: ["Een kleiner model kiezen voor eenvoudige stappen", "De langste prompt schrijven", "Elke beurt een nieuwe sleutel maken", "Alle chats samenvoegen"], a: 0, why: "Voor eenvoudige taken is een klein, goedkoop model vaak genoeg. Zo betaal je alleen voor wat nodig is." },
+   { q: "Waarom oefen je eerst met nepgeld bij een handelsbot?", opts: ["Omdat het sneller is", "Om fouten te ontdekken zonder echt verlies", "Omdat de bot dan slimmer wordt", "Omdat het zo is voorgeschreven"], a: 1, why: "Met nepgeld zie je fouten in de logica zonder dat er echt geld verloren gaat. Pas daarna kom je aan echt geld toe." }
+ ] }
+];
 
-function computeStats() {
-  const done = DAYS.map((_, i) => !!state["d"+(i+1)]);
-  const count = done.filter(Boolean).length;
-  const xp = count * XP_PER_DAY;
-  const level = Math.floor(xp / XP_PER_LEVEL) + 1;
-  const title = TITLES[Math.min(level - 1, TITLES.length - 1)];
-  let last = -1;
-  done.forEach((v, i) => { if (v) last = i; });
-  let streak = 0;
-  for (let i = last; i >= 0 && done[i]; i--) streak++;
-  const range = (a, b) => done.slice(a - 1, b).every(Boolean);
-  const badges = [
-    { icon:"🌱", name:"Eerste stap", on: count >= 1 },
-    { icon:"📘", name:"Week 1 af", on: range(1, 7) },
-    { icon:"🛠️", name:"Week 2 af", on: range(8, 12) },
-    { icon:"🧠", name:"Week 3 af", on: range(13, 17) },
-    { icon:"🤖", name:"Week 4 af", on: range(18, 22) },
-    { icon:"🔥", name:"5 op rij", on: streak >= 5 },
-    { icon:"⚡", name:"Halverwege", on: count >= 11 },
-    { icon:"🏆", name:"Gehaald", on: count >= DAYS.length }
-  ];
-  const todayDone = !!state["d"+todayIndex()];
-  return { xp, level, title, streak, badges, todayDone };
+let quizWeek = null;
+
+function renderQuiz() {
+  const w = quizWeek || DAYS[current - 1].w;
+  const quiz = QUIZZES[w - 1];
+  const el = document.getElementById("quizCard");
+  let html = '<div class="day-head"><span class="badge">Quizronde</span></div><h2>' + esc(quiz.title) + '</h2>';
+  html += '<div class="tabs">' + [1,2,3,4].map(x => '<button data-w="' + x + '" class="' + (x === w ? 'active' : '') + '">Week ' + x + '</button>').join("") + '</div>';
+  quiz.qs.forEach((q, qi) => {
+    const sel = state["q" + w + "_" + qi];
+    html += '<div class="qbox"><p><strong>' + (qi + 1) + '. ' + esc(q.q) + '</strong></p>';
+    html += q.opts.map((o, oi) => {
+      let cls = "opt";
+      if (sel !== undefined) { if (oi === q.a) cls += " right"; else if (oi === sel) cls += " wrong"; }
+      return '<button class="' + cls + '" data-q="' + qi + '" data-o="' + oi + '"' + (sel !== undefined ? ' disabled' : '') + '>' + esc(o) + '</button>';
+    }).join("");
+    if (sel !== undefined) {
+      html += '<p class="small">' + (sel === q.a ? "✅ Goed. " : "❌ Niet helemaal. ") + esc(q.why) + '</p>';
+      html += '<a class="btn" href="https://claude.ai/new" target="_blank" rel="noopener" data-explain="' + qi + '">Leg uit via Claude</a>';
+    }
+    html += '</div>';
+  });
+  const answered = quiz.qs.filter((_, qi) => state["q" + w + "_" + qi] !== undefined).length;
+  const score = quiz.qs.filter((q, qi) => state["q" + w + "_" + qi] === q.a).length;
+  html += '<p class="small">' + answered + ' van ' + quiz.qs.length + ' beantwoord · ' + score + ' goed</p>';
+  html += '<button class="btn" id="quizReset">Opnieuw</button>';
+  el.innerHTML = html;
+  el.querySelectorAll("[data-w]").forEach(b => b.onclick = () => { quizWeek = +b.dataset.w; renderQuiz(); });
+  el.querySelectorAll(".opt").forEach(b => b.onclick = () => { state["q" + w + "_" + b.dataset.q] = +b.dataset.o; save(state); renderQuiz(); });
+  el.querySelectorAll("[data-explain]").forEach(a => a.onclick = () => {
+    const q = quiz.qs[+a.dataset.explain];
+    try { navigator.clipboard.writeText("Leg in het Nederlands uit waarom dit antwoord klopt, met een voorbeeld uit een app.\nVraag: " + q.q + "\nGoed antwoord: " + q.opts[q.a] + "\nUitleg uit de leerweg: " + q.why); } catch (e) {}
+  });
+  document.getElementById("quizReset").onclick = () => {
+    quiz.qs.forEach((_, qi) => delete state["q" + w + "_" + qi]);
+    save(state); renderQuiz();
+  };
 }
 
-function renderStats() {
-  const s = computeStats();
-  document.getElementById("statXp").textContent = s.xp;
-  document.getElementById("statStreak").textContent = s.streak;
-  document.getElementById("statLevel").textContent = "Level " + s.level;
-  document.getElementById("statTitle").textContent = s.title;
-  document.getElementById("xpBar").style.width = ((s.xp % XP_PER_LEVEL) / XP_PER_LEVEL * 100) + "%";
-  document.getElementById("xpNext").textContent = (XP_PER_LEVEL - (s.xp % XP_PER_LEVEL)) + " XP tot level " + (s.level + 1);
-  document.getElementById("dailyGoal").textContent = s.todayDone ? "✅ Dagdoel gehaald vandaag" : "⏳ Dagdoel: rond dag " + todayIndex() + " af";
-  document.getElementById("badges").innerHTML = s.badges.map(b => `<span class="pill${b.on ? " on" : ""}" title="${b.name}">${b.icon} ${b.name}</span>`).join("");
-}
-
-function xpPop() {
-  const el = document.createElement("div");
-  el.className = "xp-pop";
-  el.textContent = "+" + XP_PER_DAY + " XP";
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1400);
-}
-
-function render() { renderTabs(); renderDay(); renderProgress(); renderStats(); }
+function render() { renderTabs(); renderDay(); renderProgress(); renderStats(); renderQuiz(); }
 
 const WEEKLY = `Geef me, in het Nederlands, de 5 belangrijkste ontwikkelingen van de afgelopen week op het gebied van AI, voor iemand die zelf apps bouwt met vibe coden.
 Per punt: 1 zin wat er is veranderd, 1 zin waarom het voor mij relevant is, en de bron (naam + datum). Max 300 woorden. Markeer onzekerheden expliciet.`;
