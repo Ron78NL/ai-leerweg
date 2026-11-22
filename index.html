@@ -70,6 +70,9 @@
   .opt:disabled { cursor:default; }
   .opt.right { border-color:#7cf3d0; background:rgba(124,243,208,.15); }
   .opt.wrong { border-color:#f472b6; background:rgba(244,114,182,.15); }
+  .uitleg { margin:12px 0 4px; }
+  .uitleg summary { cursor:pointer; color:#67e8f9; font-weight:700; margin-bottom:6px; }
+  .pl { white-space:pre-line; }
 </style>
 </head>
 <body>
@@ -340,6 +343,37 @@ function renderDay() {
   updateGate();
 }
 
+const UITLEG = [
+ [
+  { h: "Wat is een token?", p: "Een taalmodel werkt niet met letters of hele woorden, maar met tokens: stukjes tekst, vaak een deel van een woord. Ruwweg telt een token iets minder dan een Engels woord. Nederlands gebruikt vaak meer tokens per woord, dus dezelfde tekst kost in het Nederlands iets meer.\n\nWaarom is dat belangrijk? Je betaalt per token, zowel voor wat je stuurt als wat je terugkrijgt. Ook de limiet van het model wordt in tokens gemeten." },
+  { h: "Het context window", p: "Het context window is het aantal tokens dat het model tegelijk kan zien. Dat is alles: je eerdere berichten, zijn antwoorden en eventuele documenten die je plakt.\n\nWat buiten het venster valt, ziet het model niet meer. Daarom loopt een lange chat na verloop van tijd af: het model vergeet vroege afspraken. Start je een nieuwe chat, dan begint het venster leeg." },
+  { h: "Hoe schrijf je een goede prompt?", p: "Een prompt werkt beter als je vijf dingen noemt: rol (wie moet het model zijn), taak (wat moet er gebeuren), context (waarvoor), formaat (hoe moet het eruit zien) en grenzen (wat niet doen).\n\nVoorbeeld: “Je bent een docent Frans. Leg de verleden tijd uit aan een leerling van 15, in maximaal 5 zinnen, met één voorbeeld. Gebruik geen grammaticatermen die de leerling niet kent.”" },
+  { h: "Stap-voor-stap denken", p: "Bij rekenen of logica levert het model vaak betere antwoorden als het eerst de stappen uitschrijft. Je zegt dan: “Denk stap voor stap” of je vraagt eerst om een plan.\n\nBij een simpel feit (de hoofdstad van België) is dat niet nodig en kost het alleen extra tokens." },
+  { h: "Voorbeeld uit de praktijk", p: "Je wilt een weekmenu. Zonder context krijg je een algemeen lijstje. Met context (“gezin van vier, één kind is vegetarisch, budget 60 euro per week, werkdagen snel te bereiden”) krijg je een menu dat past. Je kwaliteit stijgt door de informatie die je geeft, niet door de lengte van je prompt." }
+ ],
+ [
+  { h: "Wat is vibe coden?", p: "Vibe coden betekent: je beschrijft in gewone taal wat je wilt, het model schrijft de code, en jij test het resultaat en vraagt om aanpassingen. Je hoeft niet alles zelf te kunnen schrijven, maar je moet wel kunnen beoordelen of het werkt.\n\nDaarom helpt een korte specificatie: doel, gebruikers, drie functies en wat buiten de scope valt." },
+  { h: "HTML, CSS en JavaScript", p: "Een webpagina bestaat uit drie lagen.\nHTML is de structuur: wat er op de pagina staat, zoals een titel of een knop.\nCSS is de vormgeving: kleuren, lettertypes en plaatsing.\nJavaScript is het gedrag: wat er gebeurt als je iets doet, zoals klikken.\n\nVoorbeeld: een knop maakt HTML, de kleur en ronding komen uit CSS, en de code die de tekst verandert bij een klik is JavaScript." },
+  { h: "localStorage: een kleine kast in je browser", p: "localStorage is een plekje in je browser waar je tekst bewaart met een naam. Je slaat iets op met localStorage.setItem(“naam”, “Ron”) en leest het later weer met localStorage.getItem(“naam”).\n\nDe gegevens blijven bewaard als je de pagina sluit, maar alleen in die browser op dat apparaat. Daarom zie je je voortgang niet op je laptop als je hem op je telefoon hebt bijgehouden." },
+  { h: "Checkpoints en debuggen", p: "Een checkpoint is een kopie van een werkende versie. Zo kun je altijd terug. Voor het zoeken naar een fout werkt één regel: verander één ding per keer.\n\nDe foutmelding is je belangrijkste hulp. Op een computer zie je die in de console van de browser (rechtsklik, Inspecteren, tabblad Console). Plak de exacte melding in de chat, dan weet het model waar het over gaat." },
+  { h: "Voorbeeld: je leerweg", p: "Deze leerweg is één HTML-bestand. De vragen en uitleg staan in JavaScript, de vormgeving in CSS, en je vinkjes en notities bewaart hij met localStorage. Zo heb je met een klein bestand al een echte app." }
+ ],
+ [
+  { h: "Wat is een embedding?", p: "Een embedding is een lijst getallen die de betekenis van een tekst weergeeft. Teksten met een vergelijkbare betekenis krijgen vergelijkbare getallen, dus liggen dicht bij elkaar.\n\nVoorbeeld: “kat” en “poes” hebben een andere spelling, maar een vergelijkbare betekenis. Hun getallen liggen dicht bij elkaar. Een trefwoordzoeker vindt “poes” niet als je “kat” zoekt, een zoeker op betekenis wel." },
+  { h: "Hoe werkt zoeken op betekenis?", p: "Stap 1: je zet alle teksten om in embeddings en slaat ze op.\nStap 2: je zet je vraag ook om in een embedding.\nStap 3: je zoekt de teksten die het dichtst bij je vraag liggen.\n\nDe kwaliteit hangt af van de chunks (de stukken tekst die je opslaat) en van de drempel (de minimale gelijkenis om mee te tellen)." },
+  { h: "RAG: antwoorden op basis van je eigen tekst", p: "RAG staat voor Retrieval Augmented Generation. Het werkt in drie stappen:\n1. Zoek de drie meest passende fragmenten uit jouw documenten.\n2. Geef die fragmenten samen met je vraag aan het model.\n3. Het model antwoordt en noemt welk fragment het gebruikte.\n\nDe grote winst: het model antwoordt op jouw tekst, en jij kunt controleren of het klopt." },
+  { h: "Tool use: het model kiest een functie", p: "Bij tool use beschrijf je functies: naam, wat ze doen en welke gegevens ze nodig hebben. Het model kiest de juiste functie en vult de gegevens in. Jouw code voert de functie uit en stuurt het resultaat terug.\n\nVoorbeeld: je vraagt “Wat is 21 procent btw op 340 euro?”. Het model roept bereken_btw(bedrag=340, percentage=21) aan. Jouw code rekent uit: 411,40 euro. Het model zegt dan het antwoord. Zo wordt een rekensom betrouwbaar, omdat jouw code rekent en het model alleen kiest." },
+  { h: "Evaluatie: meten of het beter wordt", p: "Een testset is een lijst vragen met het antwoord dat je verwacht. Je draait de set, telt het aantal goede antwoorden, en doet dat opnieuw na elke wijziging.\n\nVoorbeeld: je wijzigt de systeemprompt van je wiskundebot. Met de testset zie je of de score stijgt. Zonder testset weet je alleen hoe het aanvoelt, en dat is een onbetrouwbare maatstaf." }
+ ],
+ [
+  { h: "Wat is een agent?", p: "Een agent is een lus: het model maakt een plan, voert een stap uit met een tool, controleert het resultaat en gaat door tot de taak klaar is. Het verschil met een gewone chat: de agent neemt zelf de volgende stap, zonder dat jij elke keer ingrijpt.\n\nVoorbeeld: “Zoek de openingstijden van een bibliotheek en zet ze in een tabel.” Stap 1: zoeken. Stap 2: de bron controleren. Stap 3: de tabel maken. Daarna stopt de agent." },
+  { h: "Waarom een stopregel?", p: "Zonder stopregel kan een agent blijven draaien, en de kosten lopen op. Begrens daarom het aantal stappen (bijvoorbeeld maximaal vijf) en leg vast wanneer hij klaar is.\n\nLog elke stap, zodat je achteraf kunt zien waarom hij een beslissing nam. Voor acties met gevolgen, zoals geld of berichten versturen, moet een mens bevestigen." },
+  { h: "API-sleutels: als een wachtwoord", p: "Een API-sleutel geeft toegang tot je betaalde account. Zet hem in een .env-bestand op je eigen computer en zorg dat een .gitignore-bestand dat bestand uitsluit van GitHub.\n\nEen openbare repo kan door iedereen worden gelezen, en er bestaan bots die er automatisch naar sleutels zoeken. Is een sleutel per ongeluk gepusht? Dan trek je hem direct in en maak je een nieuwe aan, ook als je de commit daarna verwijdert." },
+  { h: "Kosten laag houden", p: "Je betaalt voor tokens die je stuurt en voor tokens die je terugkrijgt. Drie manieren om kosten te verlagen:\n1. Een klein model voor eenvoudige stappen, en een groter model alleen voor het moeilijke werk.\n2. Een vaste startprompt die bij elke beurt terugkomt, kan met prompt caching goedkoper worden, omdat het model die tekst niet elke keer opnieuw hoeft te verwerken.\n3. Korte context: stuur alleen wat nodig is." },
+  { h: "Voorbeeld: de handelsbot-oefenmodule", p: "De oefenmodule gebruikt nepgeld. Elke koop of verkoop vraagt om goedkeuring van jou, er is een dagmaximum, en elke beslissing staat in een logboek. Zo leer je hoe een agent met geld werkt zonder dat er echt geld verloren gaat.\n\nDit is geen beleggingsadvies: het gaat om het leren bouwen van veilige agents." }
+ ]
+];
+
 const QUIZZES = [
  { title: "Week 1: prompts en tokens", qs: [
    { q: "Wat is een token?", opts: ["Een volledig woord", "Een woorddeel dat het model verwerkt", "Een wachtwoord voor de API", "Een soort prompt"], a: 1, why: "Een token is een stukje tekst, vaak een deel van een woord. Kosten en context worden in tokens gemeten." },
@@ -375,6 +409,7 @@ function renderQuiz() {
   const el = document.getElementById("quizCard");
   let html = '<div class="day-head"><span class="badge">Quizronde</span></div><h2>' + esc(quiz.title) + '</h2>';
   html += '<div class="tabs">' + [1,2,3,4].map(x => '<button data-w="' + x + '" class="' + (x === w ? 'active' : '') + '">Week ' + x + '</button>').join("") + '</div>';
+  html += '<details class="uitleg" open><summary>Uitleg: lees dit eerst</summary>' + UITLEG[w - 1].map(s => '<h3>' + esc(s.h) + '</h3><p class="pl">' + esc(s.p) + '</p>').join('') + '</details>';
   quiz.qs.forEach((q, qi) => {
     const sel = state["q" + w + "_" + qi];
     html += '<div class="qbox"><p><strong>' + (qi + 1) + '. ' + esc(q.q) + '</strong></p>';

@@ -1,5 +1,5 @@
 const PREFIX = "ai-leerweg-";
-const CACHE = PREFIX + "4";
+const CACHE = PREFIX + "5";
 const BESTANDEN = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
